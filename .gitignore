@@ -1,0 +1,17 @@
+# Build results
+build/
+bin/
+out/
+output/
+*.exe
+*.obj
+*.o
+*.pdb
+*.ilk
+*.bmp
+*.ppm
+
+# Editor and IDE files
+.vs/
+.vscode/
+*.user
