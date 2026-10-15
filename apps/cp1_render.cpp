@@ -7,7 +7,7 @@
 // Usage:   cp1_render [output_folder]        (default: output)
 //
 // Writes:
-//   hand_1_5.bmp ... hand_8_ILY.bmp   the 8 ASL signs
+//   hand_1_5.bmp ... hand_9_I.bmp     the 9 ASL signs
 //   hand_wireframe.bmp                outlines only: polygons, circles,
 //                                     ellipses, spline control points
 //   hand_skeleton.bmp                 joint hierarchy (lines + circles)
@@ -70,7 +70,7 @@ int main(int argc, char** argv) {
     Hand hand;
     RenderSettings settings;
 
-    // ---- The 8 signs --------------------------------------------------------
+    // ---- The 9 signs --------------------------------------------------------
     std::printf("Hand signs (scan-line fill, Catmull-Rom palm, Bezier creases, ellipses):\n");
     int index = 1;
     for (const HandPose& pose : signLibrary()) {

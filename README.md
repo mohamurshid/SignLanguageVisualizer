@@ -68,7 +68,7 @@ bin\cp1_render.exe
 ```
 
 - `render_test.exe` runs 62 automated checks and should end with `ALL CHECKS PASSED`.
-- `cp1_render.exe` writes 21 images to the `output` folder. Open them in any image viewer.
+- `cp1_render.exe` writes 22 images to the `output` folder. Open them in any image viewer.
 - `sign_viewer.exe` opens the **interactive window**. Click it, then use the keys below.
 
 ### Option B – any system with g++
@@ -97,7 +97,7 @@ This builds `cp1_render` and `render_test`. It also builds `sign_viewer` if free
 
 | Key | Action |
 |---|---|
-| `1`–`8` | Show a sign: 5, A, B, L, V, W, Y, ILY (the hand moves smoothly to it) |
+| `1`–`9` | Show a sign: 5, A, B, L, V, W, Y, ILY, I (the hand moves smoothly to it) |
 | `P` | Play through all the signs |
 | `D` | Switch lines between DDA and Bresenham |
 | `F` | Switch filled (scan-line) / wireframe |
@@ -114,7 +114,7 @@ All of them, with captions explaining each algorithm: **[docs/CP1-graphical-outp
 
 | File | Shows |
 |---|---|
-| `hand_1_5.bmp` … `hand_8_ILY.bmp` | The 8 signs: filled polygons, spline palm, Bézier creases, ellipses, skeleton |
+| `hand_1_5.bmp` … `hand_9_I.bmp` | The 9 signs: filled polygons, spline palm, Bézier creases, ellipses, skeleton |
 | `hand_wireframe.bmp` | Outlines only: every polygon, circle and ellipse, plus the spline's control points |
 | `hand_skeleton.bmp` | The joint hierarchy (lines + circles) |
 | `hand_pixels_8x.bmp` | A 120×90 render shown 8× larger |
@@ -165,7 +165,7 @@ CMakeLists.txt        Optional CMake build
 
 - All the algorithms covered so far are implemented in pure C++: lines and line operations; circles and ellipses; polygon representation, operations, filling and clipping; Bézier curves and splines.
 - Each algorithm is used for a real part of the hand, not only on its own test page.
-- 2D hand rig with a joint hierarchy and forward kinematics, plus 8 ASL signs.
+- 2D hand rig with a joint hierarchy and forward kinematics, plus 9 ASL signs.
 - 62 automated checks, all passing.
 - An interactive viewer for demonstrations (`sign_viewer.exe`).
 

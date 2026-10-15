@@ -303,7 +303,7 @@ void sceneTests() {
         drawHandScene(fb, hand, s);
         allDrawn = allDrawn && countColour(fb, palette::skin) > 500;
     }
-    check(allDrawn, "all 8 signs render with skin pixels");
+    check(allDrawn, "all 9 signs render with skin pixels");
 
     // Detail view: magnified hand must stay inside its viewport.
     hand.setPose(signLibrary()[0]);

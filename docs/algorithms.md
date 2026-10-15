@@ -345,7 +345,7 @@ next joint = previous joint + projected length × (cos(direction), sin(direction
 
 Because the angles add up, bending a knuckle carries every joint after it. A bone flexed past 90° folds back over the palm and is drawn in a darker tone, and its fingernail becomes visible.
 
-The 8 signs (5, A, B, L, V, W, Y, I-Love-You) in `Poses.cpp` are just lists of angles. Moving between signs blends every angle with smoothstep easing `t²(3 − 2t)`. In Checkpoint 2 this becomes proper transformation matrices and keyframe animation.
+The 9 signs (5, A, B, L, V, W, Y, I-Love-You, I) in `Poses.cpp` are just lists of angles. Moving between signs blends every angle with smoothstep easing `t²(3 − 2t)`. In Checkpoint 2 this becomes proper transformation matrices and keyframe animation.
 
 ---
 

@@ -63,6 +63,8 @@ const std::vector<HandPose>& signLibrary() {
              thumbOut(-22), curled(), curled(), curled(), straight(25)),
         make("ILY", "\"I love you\": thumb, index and pinky out",
              thumbOut(-18), straight(-4), curled(), curled(), straight(20)),
+        make("I", "fist with only the pinky up, thumb across the fingers",
+             thumbOverFingers(80), curled(), curled(), curled(), straight(8)),
     };
     return library;
 }
