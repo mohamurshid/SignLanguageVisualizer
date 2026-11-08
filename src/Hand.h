@@ -20,14 +20,19 @@
 // screen: projected length = length * cos(theta). This is an orthographic
 // projection. Past 90 degrees cos is negative and the bone folds back over
 // the palm, which is exactly what a curled finger looks like from the front.
-// In Checkpoint 2 this hand-written trigonometry becomes a proper matrix
-// stack of transformations.
+//
+// Checkpoint 2: the joints are now placed with a MATRIX STACK (Transform.h).
+// Every joint has its own local coordinate frame (a 3x3 matrix) and the
+// frames are chained: forearm -> wrist -> palm -> knuckle -> middle joint ->
+// end joint -> fingertip. The whole hand is positioned in the scene by a
+// Placement (move, rotate at the wrist, scale, mirror for a left hand).
 
 #include <array>
 #include <string>
 #include <vector>
 
 #include "Geometry.h"
+#include "Transform.h"
 
 constexpr int kFingerCount = 5;
 constexpr int kBones = 3;   // bones per finger
@@ -63,10 +68,30 @@ struct FingerSpec {
     std::array<double, kPoints> width; // skin width at each point
 };
 
-// The solved result for one finger: where each point ended up.
+// The solved result for one finger, in hand coordinates (wrist = origin).
 struct FingerChain {
     std::array<Vec2, kPoints> point;
     std::array<double, kBones> totalFlex;  // accumulated flex of each bone
+    // jointFrame[i]: the matrix at joint i BEFORE its own bend is applied
+    //   (its x-axis is the direction the bone would point with bend = 0).
+    // boneFrame[i]:  the matrix after the bend; bone i runs along its x-axis.
+    std::array<Mat3, kBones> jointFrame;
+    std::array<Mat3, kBones> boneFrame;
+};
+
+// Where the whole hand is in the scene: the top of the hierarchy.
+//   forearm matrix = T(position) * S(scale) * [mirror]
+//   hand matrix    = forearm matrix * R(wristAngle)     (rotation at the wrist)
+// The wrist is the origin of hand coordinates, so R(wristAngle) rotates the
+// hand about the wrist while the forearm stays still.
+struct Placement {
+    Vec2 position{0.0, 0.0};  // hand units, relative to the usual spot
+    double wristAngle = 0.0;  // degrees, anticlockwise
+    double scale = 1.0;       // > 1 looks closer to the viewer
+    bool mirror = false;      // true = reflect in the y-axis: a LEFT hand
+
+    Mat3 forearmMatrix() const;
+    Mat3 handMatrix() const;
 };
 
 class Hand {
@@ -75,6 +100,9 @@ public:
 
     void setPose(const HandPose& pose);
     const HandPose& pose() const { return pose_; }
+
+    void setPlacement(const Placement& placement) { placement_ = placement; }
+    const Placement& placement() const { return placement_; }
 
     const FingerSpec& spec(int finger) const { return specs_[finger]; }
     const FingerChain& chain(int finger) const { return chains_[finger]; }
@@ -100,6 +128,7 @@ private:
     void solveForwardKinematics();
 
     HandPose pose_;
+    Placement placement_;
     std::array<FingerSpec, kFingerCount> specs_;
     std::array<FingerChain, kFingerCount> chains_;
     std::vector<Vec2> palm_;

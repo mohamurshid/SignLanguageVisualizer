@@ -6,10 +6,17 @@
 #include <vector>
 
 #include "Curves.h"
+#include "TransformedShapes.h"
 
+// The standard view: hand units are scaled to pixels, then the wrist (the
+// origin of hand units) is moved to its spot on screen.
 HandView HandView::fit(int width, int height) {
-    return {height * 0.34, width * 0.47, height * 0.17};
+    const double scale = height * 0.34;
+    return {xf::translate(width * 0.47, height * 0.17) * xf::scale(scale, scale), scale};
 }
+
+Mat3 forearmToScreen(const HandView& view, const Hand& hand) { return view.m * hand.placement().forearmMatrix(); }
+Mat3 handToScreen(const HandView& view, const Hand& hand) { return view.m * hand.placement().handMatrix(); }
 
 namespace {
 
@@ -67,20 +74,22 @@ void drawBone(Canvas& canvas, Vec2 a, Vec2 b, double ra, double rb, Color color,
 }
 
 // Fingernail: only visible when the end of the finger is folded over the
-// palm (we then see the back of the finger). Drawn as a midpoint ellipse.
+// palm (we then see the back of the finger). An ellipse in hand coordinates:
+// a midpoint ellipse while the hand is upright, a transformed polygon when
+// the hand is rotated (see TransformedShapes).
 void drawNail(Canvas& canvas, const Hand& hand, int f, const HandView& view, const Style& st, bool filled) {
     if (f == Thumb) return;
     const FingerChain& chain = hand.chain(f);
     if (chain.totalFlex[kBones - 1] <= 90.0) return;
-    const Vec2 tip = view.toPixels(chain.point[kPoints - 1]);
-    const Vec2 dip = view.toPixels(chain.point[kPoints - 2]);
+    const Vec2 tip = chain.point[kPoints - 1];
+    const Vec2 dip = chain.point[kPoints - 2];
     const Vec2 centre = tip + (dip - tip) * 0.30;
-    const double w = hand.spec(f).width[kPoints - 1] * view.scale;
+    const double w = hand.spec(f).width[kPoints - 1];
     if (filled) {
-        canvas.fillEllipse(centre, w * 0.30, w * 0.36, st.nail);
-        canvas.ellipse(centre, w * 0.30, w * 0.36, st.outline);
+        shapes::ellipse(canvas, view.m, centre, w * 0.30, w * 0.36, st.nail, true);
+        shapes::ellipse(canvas, view.m, centre, w * 0.30, w * 0.36, st.outline, false);
     } else {
-        canvas.ellipse(centre, w * 0.30, w * 0.36, st.wire);
+        shapes::ellipse(canvas, view.m, centre, w * 0.30, w * 0.36, st.wire, false);
     }
 }
 
@@ -131,14 +140,10 @@ void drawPalm(Canvas& canvas, const Hand& hand, const HandView& view, const Rend
 
     if (!s.showDetails) return;
 
-    // Pads at the base of the thumb and little finger: midpoint ellipses.
+    // Pads at the base of the thumb and little finger: ellipses in hand
+    // coordinates (midpoint ellipse when upright, polygon when rotated).
     for (const Hand::EllipseSpec& pad : hand.palmPads()) {
-        const Vec2 c = view.toPixels(pad.centre);
-        if (s.filled) {
-            canvas.fillEllipse(c, pad.rx * view.scale, pad.ry * view.scale, st.skinShade);
-        } else {
-            canvas.ellipse(c, pad.rx * view.scale, pad.ry * view.scale, st.wire);
-        }
+        shapes::ellipse(canvas, view.m, pad.centre, pad.rx, pad.ry, s.filled ? st.skinShade : st.wire, s.filled);
     }
 
     // Palm creases: cubic Bezier curves, sampled and drawn as polylines.
@@ -149,8 +154,10 @@ void drawPalm(Canvas& canvas, const Hand& hand, const HandView& view, const Rend
     }
 }
 
-void drawSkin(Canvas& canvas, const Hand& hand, const HandView& view, const RenderSettings& s, const Style& st) {
-    const std::vector<Vec2> forearm = toPixels(hand.forearmOutline(), view);
+// 'arm' maps forearm coordinates and 'view' maps hand coordinates to pixels.
+void drawSkin(Canvas& canvas, const Hand& hand, const HandView& arm, const HandView& view, const RenderSettings& s,
+              const Style& st) {
+    const std::vector<Vec2> forearm = toPixels(hand.forearmOutline(), arm);
     if (s.filled) {
         canvas.fillPolygon(forearm, st.skin);
         canvas.polygonOutline(forearm, st.outline);
@@ -163,6 +170,16 @@ void drawSkin(Canvas& canvas, const Hand& hand, const HandView& view, const Rend
     // Painter's algorithm: draw back to front so nearer parts cover farther ones.
     // Fingers first (pinky to index), thumb last because it crosses in front.
     for (int f : {Pinky, Ring, Middle, Index, Thumb}) drawFingerSkin(canvas, hand, f, view, s, st);
+}
+
+// Each joint's local frame: red = local x-axis, green = local y-axis.
+void drawFrames(Canvas& canvas, const Hand& hand, const HandView& arm, const HandView& view) {
+    const double len = 0.13;
+    shapes::frameAxes(canvas, arm.m, Mat3::identity(), len * 1.6);   // forearm frame
+    shapes::frameAxes(canvas, view.m, Mat3::identity(), len * 1.2);  // hand frame (after the wrist)
+    for (int f = 0; f < kFingerCount; ++f) {
+        for (int b = 0; b < kBones; ++b) shapes::frameAxes(canvas, view.m, hand.chain(f).boneFrame[b], len);
+    }
 }
 
 void drawSkeleton(Canvas& canvas, const Hand& hand, const HandView& view, const Style& st) {
@@ -197,10 +214,17 @@ void drawSkeleton(Canvas& canvas, const Hand& hand, const HandView& view, const 
 
 }  // namespace
 
-void drawHand(Canvas& canvas, const Hand& hand, const HandView& view, const RenderSettings& settings) {
+// The hierarchy, outermost first:
+//   arm  = View * Forearm                (T(position) S(scale) [mirror])
+//   hand = View * Forearm * R(wrist)     (the hand turns about the wrist)
+// The finger joint frames (from the matrix stack) sit inside 'hand'.
+void drawHand(Canvas& canvas, const Hand& hand, const HandView& camera, const RenderSettings& settings) {
     const Style st = styleFor(settings);
-    if (settings.showSkin) drawSkin(canvas, hand, view, settings, st);
+    const HandView arm = camera.then(hand.placement().forearmMatrix());
+    const HandView view = camera.then(hand.placement().handMatrix());
+    if (settings.showSkin) drawSkin(canvas, hand, arm, view, settings, st);
     if (settings.showSkeleton) drawSkeleton(canvas, hand, view, st);
+    if (settings.showFrames) drawFrames(canvas, hand, arm, view);
 }
 
 void drawHandScene(Framebuffer& fb, const Hand& hand, const RenderSettings& settings, const HandPose* ghostPose) {
@@ -211,6 +235,7 @@ void drawHandScene(Framebuffer& fb, const Hand& hand, const RenderSettings& sett
     if (ghostPose) {
         Hand ghostHand;
         ghostHand.setPose(*ghostPose);
+        ghostHand.setPlacement(hand.placement());
         RenderSettings g = settings;
         g.ghost = true;
         g.filled = false;
@@ -221,14 +246,30 @@ void drawHandScene(Framebuffer& fb, const Hand& hand, const RenderSettings& sett
     drawHand(canvas, hand, view, settings);
 }
 
+void drawHandSceneWithGhost(Framebuffer& fb, const Hand& hand, const RenderSettings& settings, const Hand& ghost) {
+    fb.clear(palette::background);
+    Canvas canvas(fb, fb.bounds(), settings.lineAlgo);
+    const HandView view = HandView::fit(fb.width(), fb.height());
+    RenderSettings g = settings;
+    g.ghost = true;
+    g.filled = false;
+    g.showDetails = false;
+    g.showSkeleton = false;
+    g.showFrames = false;
+    drawHand(canvas, ghost, view, g);
+    drawHand(canvas, hand, view, settings);
+}
+
 // ===========================================================================
 // Detail view
 // ===========================================================================
 // Window-to-viewport mapping: a point inside the window W is moved into the
 // viewport V by
 //      x_v = V.xmin + (x_w - W.xmin) * k,    k = V.width / W.width
-// (the same for y). Applying this to our HandView gives a new view with
-// scale * k and a shifted origin, so the hand is simply drawn again at a
+// (the same for y). As a matrix (read right to left): move W's corner to
+// the origin, scale by k, move to V's corner:
+//      WV = T(V.xmin, V.ymin) * S(k, k) * T(-W.xmin, -W.ymin)
+// The zoomed view is simply WV * View, so the hand is drawn again at a
 // larger size - and clipped to V so it cannot spill onto the main view.
 DetailView detailViewFor(const Framebuffer& fb, const Hand& hand) {
     const int w = fb.width();
@@ -239,7 +280,7 @@ DetailView detailViewFor(const Framebuffer& fb, const Hand& hand) {
     const ClipRect viewport{x0, y0, x0 + size - 1, y0 + size - 1};
 
     // Focus on the index and middle fingers (their three outer points).
-    const HandView view = HandView::fit(w, h);
+    const HandView view = HandView::fit(w, h).then(hand.placement().handMatrix());
     Vec2 focus{0.0, 0.0};
     int count = 0;
     for (int f : {Index, Middle}) {
@@ -267,8 +308,9 @@ void drawDetailView(Framebuffer& fb, const Hand& hand, const RenderSettings& set
     screen.rectOutline(dv.window, palette::root, true);
 
     // Same hand, mapped window -> viewport, clipped to the viewport.
-    const HandView zoomed{main.scale * k, dv.viewport.xmin + (main.ox - dv.window.xmin) * k,
-                          dv.viewport.ymin + (main.oy - dv.window.ymin) * k};
+    const Mat3 windowToViewport = xf::translate(dv.viewport.xmin, dv.viewport.ymin) * xf::scale(k, k) *
+                                  xf::translate(-dv.window.xmin, -dv.window.ymin);
+    const HandView zoomed{windowToViewport * main.m, main.scale * k};
     Canvas inset(fb, dv.viewport, settings.lineAlgo);
     inset.fillClipRect(palette::insetBackground);
     drawHand(inset, hand, zoomed, settings);
@@ -278,11 +320,12 @@ void drawDetailView(Framebuffer& fb, const Hand& hand, const RenderSettings& set
 // ===========================================================================
 // Motion trails
 // ===========================================================================
-void drawMotionTrails(Framebuffer& fb, const HandPose& from, const HandPose& to, const RenderSettings& settings) {
+void drawMotionTrails(Framebuffer& fb, const HandPose& from, const HandPose& to, const RenderSettings& settings,
+                      const Placement& placement) {
     static const Color trailColors[kFingerCount] = {
         {255, 150, 60}, {90, 230, 120}, {80, 210, 255}, {230, 110, 240}, {255, 225, 80},
     };
-    const HandView view = HandView::fit(fb.width(), fb.height());
+    const HandView view = HandView::fit(fb.width(), fb.height()).then(placement.handMatrix());
     Canvas canvas(fb, fb.bounds(), settings.lineAlgo);
 
     // Keyframes: the pose at t = 0, 1/4, 1/2, 3/4, 1 of the transition.
@@ -304,5 +347,18 @@ void drawMotionTrails(Framebuffer& fb, const HandPose& from, const HandPose& to,
             canvas.fillCircle(p, dot, trailColors[f]);
             canvas.circle(p, dot + 1.0, palette::text);
         }
+    }
+}
+
+void drawWristPath(Canvas& canvas, const HandView& view, const std::vector<Vec2>& path,
+                   const std::vector<Vec2>& keyframes) {
+    const std::vector<Vec2> pts = toPixels(path, view);
+    const int width = std::max(1, static_cast<int>(std::lround(view.scale * 0.012)));
+    for (size_t i = 0; i + 1 < pts.size(); ++i) canvas.thickLine(pts[i], pts[i + 1], width, palette::root);
+    const double dot = std::max(2.0, view.scale * 0.025);
+    for (const Vec2& k : keyframes) {
+        const Vec2 p = view.toPixels(k);
+        canvas.fillCircle(p, dot, palette::controlPoint);
+        canvas.circle(p, dot + 1.0, palette::text);
     }
 }

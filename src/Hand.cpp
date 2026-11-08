@@ -63,29 +63,48 @@ void Hand::setPose(const HandPose& pose) {
     solveForwardKinematics();
 }
 
-// Forward kinematics: start at the base of each finger and walk outwards.
-// Each bone's direction and flex = its own angle + all the angles before it.
-// That accumulation IS the hierarchy: bending the knuckle carries the
-// middle joint, end joint and fingertip with it.
+// Forward kinematics with a matrix stack.
+// For each finger we push a copy of the hand frame, move to the finger's base
+// and turn to its rest direction. Then for every bone:
+//   1. remember the joint frame (used by Build mode to pick angles),
+//   2. rotate by the joint's bend      -> the bone now lies along local x,
+//   3. translate along local x by the bone's on-screen length
+//      (length * cos(total flex): the orthographic projection), which moves
+//      the frame to the next joint.
+// Because every step is multiplied onto the frames before it, bending the
+// knuckle carries the middle joint, end joint and fingertip with it: that
+// is the hierarchy. pop() returns to the hand frame for the next finger.
 void Hand::solveForwardKinematics() {
+    MatrixStack stack;  // starts as the identity: hand coordinates
     for (int f = 0; f < kFingerCount; ++f) {
         const FingerSpec& spec = specs_[f];
         const FingerPose& fp = pose_.fingers[f];
         FingerChain& chain = chains_[f];
 
-        Vec2 p = spec.base;
-        double direction = spec.restDirection;  // in-picture angle so far
-        double flex = 0.0;                      // towards-viewer angle so far
-        chain.point[0] = p;
+        stack.push();
+        stack.translate(spec.base.x, spec.base.y);
+        stack.rotate(spec.restDirection);
+        chain.point[0] = stack.top().apply({0.0, 0.0});
 
+        double flex = 0.0;  // towards-viewer angle so far
         for (int b = 0; b < kBones; ++b) {
-            direction += fp.bend[b];
+            chain.jointFrame[b] = stack.top();
+            stack.rotate(fp.bend[b]);
+            chain.boneFrame[b] = stack.top();
             flex += fp.flex[b];
             const double projected = spec.length[b] * std::cos(toRadians(flex));
-            p.x += projected * std::cos(toRadians(direction));
-            p.y += projected * std::sin(toRadians(direction));
-            chain.point[b + 1] = p;
+            stack.translate(projected, 0.0);
+            chain.point[b + 1] = stack.top().apply({0.0, 0.0});
             chain.totalFlex[b] = flex;
         }
+        stack.pop();
     }
 }
+
+Mat3 Placement::forearmMatrix() const {
+    Mat3 m = xf::translate(position.x, position.y) * xf::scale(scale, scale);
+    if (mirror) m = m * xf::reflectY();
+    return m;
+}
+
+Mat3 Placement::handMatrix() const { return forearmMatrix() * xf::rotate(wristAngle); }
