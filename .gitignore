@@ -3,6 +3,7 @@ build/
 bin/
 out/
 output/
+output_cp2/
 *.exe
 *.obj
 *.o

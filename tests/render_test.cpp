@@ -5,8 +5,15 @@
 
 #include <cmath>
 #include <cstdio>
+#include <fstream>
+#include <iterator>
 #include <string>
 #include <vector>
+
+#include "Animation.h"
+#include "GifWriter.h"
+#include "Transform.h"
+#include "TransformedShapes.h"
 
 #include "Canvas.h"
 #include "Clipping.h"
@@ -303,7 +310,7 @@ void sceneTests() {
         drawHandScene(fb, hand, s);
         allDrawn = allDrawn && countColour(fb, palette::skin) > 500;
     }
-    check(allDrawn, "all 9 signs render with skin pixels");
+    check(allDrawn, "all " + std::to_string(signLibrary().size()) + " signs render with skin pixels");
 
     // Detail view: magnified hand must stay inside its viewport.
     hand.setPose(signLibrary()[0]);
@@ -327,6 +334,165 @@ void sceneTests() {
     const ClipStats cs = lastClipStats();
     check(cs.whole + cs.clipped + cs.rejected == 20 && cs.polygonOut > 0, "clipping page: 20 lines classified");
 }
+
+// ===========================================================================
+// Checkpoint 2
+// ===========================================================================
+bool nearM(const Mat3& a, const Mat3& b, double eps = 1e-9) {
+    for (int r = 0; r < 3; ++r)
+        for (int c = 0; c < 3; ++c)
+            if (std::fabs(a.m[r][c] - b.m[r][c]) > eps) return false;
+    return true;
+}
+
+void transformTests() {
+    std::printf("Transformations\n");
+    check(near(xf::translate(3, -2).apply({1, 1}), Vec2{4, -1}), "translate (1,1) by (3,-2) gives (4,-1)");
+    check(near(xf::translate(3, -2).applyVector({1, 1}), Vec2{1, 1}), "translation does not move a direction (w = 0)");
+    check(near(xf::rotate(90).apply({1, 0}), Vec2{0, 1}), "rotate (1,0) by 90 deg gives (0,1)");
+    check(near(xf::rotate(30).apply({2, 0}), Vec2{std::sqrt(3.0), 1.0}), "worked example: rotate (2,0) by 30 deg = (1.732, 1)");
+    const Vec2 pivot{2, 1};
+    check(near(xf::rotateAbout(pivot, 73).apply(pivot), pivot), "rotation about a pivot leaves the pivot fixed");
+    check(near(xf::rotateAbout(pivot, 90).apply({3, 1}), Vec2{2, 2}), "worked example: (3,1) rotated 90 deg about (2,1) = (2,2)");
+    check(near(xf::scaleAbout({1, 1}, 2, 3).apply({1, 1}), Vec2{1, 1}) &&
+              near(xf::scaleAbout({1, 1}, 2, 3).apply({2, 2}), Vec2{3, 4}),
+          "scaling about a fixed point keeps that point; (2,2) -> (3,4)");
+    check(near(xf::reflectY().apply({2, 5}), Vec2{-2, 5}) && xf::reflectY().determinant() < 0,
+          "reflection in the y-axis: (2,5) -> (-2,5), determinant negative");
+    check(near(xf::shear(0.5, 0).apply({0, 2}), Vec2{1, 2}), "shear x' = x + 0.5 y: (0,2) -> (1,2)");
+
+    const Mat3 t = xf::translate(1, 0), r = xf::rotate(90);
+    check(near((t * r).apply({1, 0}), Vec2{1, 1}) && near((r * t).apply({1, 0}), Vec2{0, 2}),
+          "order matters: T*R(1,0) = (1,1) but R*T(1,0) = (0,2)");
+    const Mat3 m = xf::translate(4, -1) * xf::rotate(37) * xf::scale(2, 0.5) * xf::shear(0.3, 0);
+    check(nearM(m * m.inverse(), Mat3::identity(), 1e-9), "M * inverse(M) = identity");
+    check(near(m.inverse().apply(m.apply({0.7, -2.3})), Vec2{0.7, -2.3}, 1e-9), "inverse undoes the transformation");
+    check(std::fabs(xf::scale(2, 3).determinant() - 6.0) < 1e-12, "det of scale(2,3) = 6 (area grows 6 times)");
+    check(xf::scale(2, 2).isAxisAligned() && !xf::rotate(10).isAxisAligned(), "rotation is detected (for ellipses)");
+
+    MatrixStack stack;
+    stack.translate(5, 0);
+    stack.push();
+    stack.rotate(90);
+    const Vec2 child = stack.top().apply({1, 0});
+    stack.pop();
+    check(near(child, Vec2{5, 1}) && near(stack.top().apply({1, 0}), Vec2{6, 0}) && stack.depth() == 1,
+          "matrix stack: child rotated inside push/pop, parent restored");
+
+    // The matrix-stack kinematics must match the CP1 trigonometry exactly.
+    Hand hand;
+    double worst = 0.0;
+    const double kPi = 3.14159265358979323846;
+    for (const HandPose& pose : signLibrary()) {
+        hand.setPose(pose);
+        for (int f = 0; f < kFingerCount; ++f) {
+            const FingerSpec& sp = hand.spec(f);
+            Vec2 p = sp.base;
+            double dir = sp.restDirection, flex = 0;
+            for (int b = 0; b < kBones; ++b) {
+                dir += pose.fingers[f].bend[b];
+                flex += pose.fingers[f].flex[b];
+                const double len = sp.length[b] * std::cos(flex * kPi / 180);
+                p = p + Vec2{std::cos(dir * kPi / 180), std::sin(dir * kPi / 180)} * len;
+                const Vec2 q = hand.chain(f).point[b + 1];
+                worst = std::fmax(worst, std::fmax(std::fabs(q.x - p.x), std::fabs(q.y - p.y)));
+            }
+        }
+    }
+    check(worst < 1e-12, "matrix-stack kinematics = CP1 trigonometry for all " + std::to_string(signLibrary().size()) + " signs");
+
+    hand.setPose(signByName("5"));
+    const FingerChain& c = hand.chain(Index);
+    check(near(c.boneFrame[0].apply({0, 0}), c.point[0]) && near(c.jointFrame[1].apply({0, 0}), c.point[1]),
+          "joint frames sit on the joints");
+
+    Placement pl;
+    pl.wristAngle = 30;
+    pl.position = {0.5, 0.2};
+    check(near(pl.handMatrix().apply({0, 0}), Vec2{0.5, 0.2}) && near(pl.forearmMatrix().apply({0, 0}), Vec2{0.5, 0.2}),
+          "wrist rotation turns the hand about the wrist (wrist stays put)");
+    pl.mirror = true;
+    check(pl.handMatrix().determinant() < 0, "mirrored placement is a reflection (left hand)");
+
+    // Build mode idea: the inverse joint matrix turns a target point into a bend angle.
+    HandPose pose = hand.pose();
+    const Vec2 target = c.point[0] + Vec2{0.4, 0.3};
+    const Vec2 local = c.jointFrame[0].inverse().apply(target);
+    pose.fingers[Index].bend[0] = std::atan2(local.y, local.x) * 180.0 / kPi;
+    hand.setPose(pose);
+    const Vec2 dir = hand.chain(Index).point[1] - hand.chain(Index).point[0];
+    check(std::fabs(dir.x * 0.3 - dir.y * 0.4) < 1e-9 && dir.x > 0, "inverse matrix picking: bone now points at the target");
+
+    // A rotated ellipse is drawn as a transformed polygon, inside its bounds.
+    Framebuffer fb(80, 80);
+    Canvas canvas(fb, fb.bounds(), LineAlgo::Bresenham);
+    shapes::ellipse(canvas, xf::translate(40, 40) * xf::rotate(45), {0, 0}, 30, 8, kWhite, true);
+    check(fb.getPixel(40, 40) == kWhite && fb.getPixel(60, 60) == kWhite && fb.getPixel(60, 20) == kBlack,
+          "rotated ellipse lies along the 45-degree diagonal");
+}
+
+void animationTests() {
+    std::printf("Animation\n");
+    const auto& lib = animationLibrary();
+    check(lib.size() >= 6, "6 animated signs");
+    bool keysOk = true;
+    for (const SignAnimation& a : lib) {
+        for (size_t i = 0; i + 1 < a.keys.size(); ++i) keysOk = keysOk && a.keys[i].time < a.keys[i + 1].time;
+        for (const Keyframe& k : a.keys) {
+            const AnimationFrame f = sampleAnimation(a, k.time);
+            keysOk = keysOk && near(f.placement.position, k.placement.position, 1e-9) &&
+                     std::fabs(f.placement.wristAngle - k.placement.wristAngle) < 1e-9 &&
+                     std::fabs(f.pose.fingers[Index].flex[1] - k.pose.fingers[Index].flex[1]) < 1e-9;
+        }
+    }
+    check(keysOk, "every animation passes exactly through its keyframes");
+
+    const SignAnimation& wave = lib[1];  // GOODBYE
+    const AnimationFrame mid = sampleAnimation(wave, (wave.keys[1].time + wave.keys[2].time) / 2);
+    check(std::fabs(mid.placement.wristAngle) < 1e-9, "halfway between +22 and -22 deg the wrist is at 0 deg (eased)");
+    const double early = sampleAnimation(wave, wave.keys[0].time + 0.05 * (wave.keys[1].time - wave.keys[0].time)).placement.wristAngle;
+    check(early > 0 && early < 22 * 0.05, "easing: the motion starts slower than linear");
+    check(near(sampleAnimation(wave, -1).placement.position, wave.keys.front().placement.position) &&
+              near(sampleAnimation(wave, 99).placement.position, wave.keys.back().placement.position),
+          "times before the start / after the end are clamped");
+
+    const SignAnimation& hello = lib[0];
+    const std::vector<Vec2> path = motionPath(hello);
+    const std::vector<Vec2> keys = keyframePositions(hello);
+    check(near(path.front(), keys.front()) && near(path.back(), keys.back()) && keys.size() == 3,
+          "HELLO motion path: Catmull-Rom through its 3 keyframe positions");
+    const AnimationFrame hold = sampleAnimation(hello, (hello.keys[0].time + hello.keys[1].time) / 2);
+    check(near(hold.placement.position, hello.keys[0].placement.position), "a held keyframe does not drift");
+
+    AnimationPlayer player;
+    player.start(&wave);
+    player.setSpeed(2.0);
+    player.advance(0.25);
+    check(std::fabs(player.time() - 0.5) < 1e-12, "speed 2x: 0.25 s of real time = 0.5 s of animation");
+    player.advance(10.0);
+    check(player.time() >= 0 && player.time() < wave.duration() + 1.0, "playback loops back to the start");
+}
+
+void gifTests() {
+    std::printf("GIF writer\n");
+    // LZW on a run of one colour: few codes, much smaller than the input.
+    const std::vector<std::uint8_t> run(10000, 3);
+    check(gifLzwEncode(run, 8).size() < 300, "LZW compresses 10000 equal pixels to under 300 bytes");
+
+    Framebuffer fb(16, 8);
+    fb.clear({10, 20, 30});
+    fb.setPixel(3, 2, {200, 100, 50});
+    GifWriter gif;
+    const std::string path = "render_test_tmp.gif";
+    bool ok = gif.open(path, 16, 8, 1) && gif.addFrame(fb, 10) && gif.addFrame(fb, 10) && gif.close();
+    std::ifstream in(path, std::ios::binary);
+    const std::vector<char> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    in.close();
+    std::remove(path.c_str());
+    ok = ok && bytes.size() > 20 && std::string(bytes.begin(), bytes.begin() + 6) == "GIF89a" && bytes.back() == 0x3B &&
+         static_cast<unsigned char>(bytes[6]) == 16 && static_cast<unsigned char>(bytes[8]) == 8;
+    check(ok && gif.frameCount() == 2, "GIF file: GIF89a header, 16 x 8, 2 frames, trailer 0x3B");
+}
 }  // namespace
 
 int main() {
@@ -336,6 +502,9 @@ int main() {
     clippingTests();
     curveTests();
     sceneTests();
+    transformTests();
+    animationTests();
+    gifTests();
     std::printf("\n%d passed, %d failed\n", passes, failures);
     std::printf("%s\n", failures == 0 ? "ALL CHECKS PASSED" : "SOME CHECKS FAILED");
     return failures == 0 ? 0 : 1;

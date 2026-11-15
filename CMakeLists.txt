@@ -19,6 +19,11 @@ add_library(graphics_core STATIC
     src/Poses.cpp
     src/HandRenderer.cpp
     src/TestScene.cpp
+    src/Transform.cpp
+    src/TransformedShapes.cpp
+    src/TransformScene.cpp
+    src/Animation.cpp
+    src/GifWriter.cpp
 )
 target_include_directories(graphics_core PUBLIC src)
 
@@ -26,13 +31,18 @@ target_include_directories(graphics_core PUBLIC src)
 add_executable(cp1_render apps/cp1_render.cpp)
 target_link_libraries(cp1_render PRIVATE graphics_core)
 
+# Checkpoint 2 program: transformations and animations to .bmp and .gif (pure C++).
+add_executable(cp2_animate apps/cp2_animate.cpp)
+target_link_libraries(cp2_animate PRIVATE graphics_core)
+
 # Automated checks for every algorithm (pure C++).
 add_executable(render_test tests/render_test.cpp)
 target_link_libraries(render_test PRIVATE graphics_core)
 
 # Interactive viewer for Windows: uses only Windows' own window functions.
 if(WIN32)
-    add_executable(sign_viewer_win32 apps/viewer_win32.cpp)
+    add_executable(sign_viewer_win32 apps/viewer_win32.cpp apps/ViewerCore.cpp)
+    target_include_directories(sign_viewer_win32 PRIVATE apps)
     target_link_libraries(sign_viewer_win32 PRIVATE graphics_core user32 gdi32)
 endif()
 
@@ -40,7 +50,8 @@ endif()
 find_package(OpenGL QUIET)
 find_package(GLUT QUIET)
 if(OpenGL_FOUND AND GLUT_FOUND)
-    add_executable(sign_viewer apps/viewer_glut.cpp)
+    add_executable(sign_viewer apps/viewer_glut.cpp apps/ViewerCore.cpp)
+    target_include_directories(sign_viewer PRIVATE apps)
     target_link_libraries(sign_viewer PRIVATE graphics_core OpenGL::GL GLUT::GLUT)
 else()
     message(STATUS "OpenGL/freeglut not found: skipping the optional viewer (sign_viewer)")
