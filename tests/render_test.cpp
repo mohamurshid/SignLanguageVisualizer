@@ -1,10 +1,12 @@
 // render_test: automated checks for every algorithm (pure C++, no window).
+// The 3D checks of the final project are in final_tests.cpp.
 //
 // Run it after changing any algorithm. It prints PASS/FAIL for each check
 // and ends with "ALL CHECKS PASSED" when everything is correct.
 
 #include <cmath>
 #include <cstdio>
+#include <functional>
 #include <fstream>
 #include <iterator>
 #include <string>
@@ -495,6 +497,8 @@ void gifTests() {
 }
 }  // namespace
 
+void finalTests(const std::function<void(bool, const std::string&)>& check);  // final_tests.cpp
+
 int main() {
     lineTests();
     circleAndEllipseTests();
@@ -505,6 +509,7 @@ int main() {
     transformTests();
     animationTests();
     gifTests();
+    finalTests(check);
     std::printf("\n%d passed, %d failed\n", passes, failures);
     std::printf("%s\n", failures == 0 ? "ALL CHECKS PASSED" : "SOME CHECKS FAILED");
     return failures == 0 ? 0 : 1;
