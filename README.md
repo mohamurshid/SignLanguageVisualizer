@@ -1,222 +1,183 @@
 # Sign Language Gesture Visualizer
 
-An interactive visualizer that shows American Sign Language (ASL) handshapes and signs on a rigged hand, built for our Computer Graphics semester project. Learners can **watch** signs being made (Watch mode) and **pose the hand themselves** (Build mode).
+An interactive application for learning American Sign Language (ASL) on a rigged 3D hand, built for our Computer Graphics semester project. Learners can:
 
-**Current stage: Checkpoint 2 – Transformation and Animation.**
+- **Learn** the whole manual alphabet (A–Z), the numbers 0–10 and 32 everyday conversation signs, each with a description of how it is made and where.
+- **Type** a word or a sentence: known words are signed, other words such as names are fingerspelled, and subtitles show what is being signed.
+- **Build** handshapes themselves by dragging the joints with the mouse.
 
-- **Checkpoint 1:** the hand is built from lines, circles, ellipses, polygons and curves.
-- **Checkpoint 2:** every joint is placed with 3×3 transformation matrices and a matrix stack. The whole hand can be moved, rotated at the wrist, scaled and mirrored into a left hand. Six ASL signs are animated with keyframes, eased interpolation and spline motion paths.
+**Stage: final project (Checkpoint 3 – OpenGL integration and prototype – and the final version).**
 
-Everything is our own **pure C++**, using only the standard library: the algorithms, the matrices, the animation, and the BMP and GIF writers that save the results.
+![The 3D application](docs/images/final_01_studio.png)
 
-| GOODBYE: rotation about the wrist | HELLO: translation along a motion path | NO: joint-angle keyframes |
+| Type a sentence: "nice to meet you" | Fingerspelling a name | Two hands: NAME |
 |---|---|---|
-| ![goodbye](docs/animations/anim_2_goodbye.gif) | ![hello](docs/animations/anim_1_hello.gif) | ![no](docs/animations/anim_4_no.gif) |
+| ![sentence](docs/animations/final_anim_nice_to_meet_you.gif) | ![spelling](docs/animations/final_anim_spelling.gif) | ![name](docs/animations/final_anim_name.gif) |
 
-*These GIFs were written by our own GIF encoder (`src/GifWriter.cpp`).*
+*These GIFs were rendered by the application itself (`sign_studio --capture`) and saved by our own GIF writer.*
 
-| Transformations on a finger | The matrix stack: each joint's local frame |
+## How the project grew
+
+| Stage | What it added |
 |---|---|
-| ![basics](docs/images/cp2_transform_basics.png) | ![frames](docs/images/cp2_hand_frames.png) |
-| **One sign: original, wrist turned, scaled and moved, mirrored** | **Checkpoint 1: wireframe of every primitive** |
-| ![placements](docs/images/cp2_hand_placements.png) | ![wireframe](docs/images/wireframe.png) |
+| **Checkpoint 1** – core graphics | Every drawing algorithm in pure C++ (lines, circles, ellipses, polygon fill, clipping, curves), each used for a part of a 2D hand; 8 handshapes |
+| **Checkpoint 2** – transformation and animation | 3×3 matrices and a matrix stack for the hand's hierarchy; keyframe animation with easing and motion paths; Watch and Build modes; GIF writer; 16 handshapes |
+| **Checkpoint 3** – OpenGL integration | The same rig in 3D: 4×4 matrices, our own meshes, OpenGL rendering with lighting, shading and an orbit camera |
+| **Final project** | Full alphabet and numbers, 32 conversation signs with a body reference and a second hand, type-a-word and sentence mode, close-up and signer's-view cameras, left-handed mode |
+
+Nothing from the earlier checkpoints was thrown away. The 3D hand uses the CP1/CP2 joint angles and sizes; the palm is the CP1 spline outline extruded; screenshots go through our CP1 framebuffer and BMP writer; animations go through our CP2 GIF writer. The CP1 and CP2 programs still build and run.
 
 ## Group members and responsibilities
 
-| Member | Checkpoint 1 | Checkpoint 2 | Main files |
-|---|---|---|---|
-| Abdalla Muhammad (169962) | Hand rig, forward kinematics, drawing the hand, build setup | Transformation matrices, matrix stack, the hand's hierarchy and placement | `src/Hand.*`, `src/HandRenderer.*`, `src/Transform.*` |
-| Elvis Wafuke (154210) | Lines (DDA, Bresenham, attributes), Bézier curves, splines, algorithm pages | Keyframe animation, easing, motion paths, the animated signs, the CP2 renderer | `src/RasterLines.cpp`, `src/Curves.*`, `src/TestScene.*`, `src/Animation.*`, `apps/cp2_animate.cpp` |
-| Ilhan Hamud (169004) | Framebuffer and BMP output, polygon operations, circles, ellipses | Transformed primitives (rotated ellipses, frames), transformation pages, GIF writer | `src/Framebuffer.*`, `src/Geometry.*`, `src/RasterCircles.cpp`, `src/RasterEllipses.cpp`, `src/TransformedShapes.*`, `src/TransformScene.*`, `src/GifWriter.*` |
-| Joy Wanjohi (159540) | Scan-line fill, line and polygon clipping, Canvas, Windows viewer | Watch mode, Build mode (picking joints with inverse matrices), both viewers | `src/RasterPolygons.cpp`, `src/Clipping.*`, `src/Canvas.*`, `apps/ViewerCore.*`, `apps/viewer_win32.cpp`, `apps/viewer_glut.cpp` |
-| Benson Gitonga (156740) | Sign library, CP1 renderer, tests, documentation | 16-sign library, CP2 tests, documentation, build files | `src/Poses.*`, `apps/cp1_render.cpp`, `tests/`, `docs/`, `README.md`, `CMakeLists.txt`, `build.bat` |
+| Member | Checkpoint 1 | Checkpoint 2 | Checkpoint 3 and final | Main files |
+|---|---|---|---|---|
+| Abdalla Muhammad (169962) | Hand rig, forward kinematics, drawing the hand, build setup | Transformation matrices, matrix stack, hierarchy and placement | 3D maths (4×4 matrices, camera matrices), 3D hand and its meshes, two-bone arm | `src/Math3D.*`, `src/Hand3D.*`, `src/Mesh.*`, `src/HandMesh.*` |
+| Ilhan Hamud (169004) | Framebuffer and BMP output, polygon operations, circles, ellipses | Rotated ellipses, transformation pages, GIF writer | OpenGL renderer: lighting, materials, shading modes; orbit camera; body reference; median-cut colours for GIFs | `src/GLRenderer.*`, `src/Camera.*`, `src/Body.*`, `src/GifWriter.*` |
+| Elvis Wafuke (154210) | Lines, Bézier curves, splines, algorithm pages | Keyframe animation, easing, motion paths, CP2 renderer | Two-hand timeline; type-a-word and sentence mode; the capture tool (screenshots and GIFs) | `src/Timeline.*`, `src/Speller.*`, `apps/StudioCapture.*` |
+| Joy Wanjohi (159540) | Scan-line fill, clipping, Canvas, Windows viewer | Watch mode, Build mode (inverse matrices), both viewers | The 3D application: Learn / Type / Build modes, picking joints in 3D, the on-screen interface, the Windows (WGL) and GLUT windows | `apps/StudioCore.*`, `apps/studio_win32.cpp`, `apps/studio_glut.cpp` |
+| Benson Gitonga (156740) | Sign library, CP1 renderer, tests, documentation | 16-sign library, CP2 tests, documentation, build files | All handshapes (A–Z, 0–10), the 32 conversation signs, 52 new checks, documentation, build files | `src/Handshapes.*`, `src/Signs3D.*`, `tests/`, `docs/`, `README.md`, `build.bat`, `CMakeLists.txt` |
 
 ## Technologies and tools
 
 | Tool | Used for |
 |---|---|
-| **C++17** with the standard library only | All graphics, transformations, animation, and the BMP/GIF writers |
-| Visual Studio 2022 (MSVC) or g++ | Compiling |
-| `build.bat` / CMake (optional) | Building |
+| **C++17** with the standard library | All the graphics code |
+| **OpenGL 1.1** (the version every Windows PC has) | Drawing the 3D scene: vertex arrays, depth buffer, fixed-function lighting. We give OpenGL our own matrices; no GLU. |
+| Windows' window functions + WGL | Opening the window and creating the OpenGL context on Windows: **nothing to install** |
+| *Optional:* freeglut | The same application in a GLUT window (Linux, macOS, or Windows with freeglut) |
+| Visual Studio 2022 (MSVC) or g++; `build.bat` / CMake | Compiling and building |
 | Git and GitHub | Version control, issues, collaboration |
-| Windows' built-in window functions (user32, gdi32) | Only for the interactive viewer `apps/viewer_win32.cpp`: opening the window, reading keys and the mouse, copying our finished pixels to the screen, and drawing text. All drawing is done by our code. |
-| *Optional:* OpenGL + freeglut | An alternative viewer, `apps/viewer_glut.cpp`, that works the same way. OpenGL proper comes in Checkpoint 3. |
 
-## Graphics techniques implemented so far
+## Graphics techniques
 
-### Checkpoint 2 – transformations and animation
+### Checkpoint 3 and the final project – 3D and OpenGL
 
-| Topic | Technique | Used in the project for | File |
+| Topic | Technique | Used for | File |
 |---|---|---|---|
-| Homogeneous coordinates | 3×3 matrices; points (w = 1) and directions (w = 0) | Every point drawn | `Transform.*` |
-| Basic transformations | Translation, rotation, scaling, reflection, shear | Moving, turning, scaling and mirroring the hand | `Transform.*` |
-| Fixed-point transformations | Rotation about a pivot, scaling about a fixed point | Hand turns about the wrist; fingers turn about their knuckles | `Transform.*` |
-| Composite transformations | Matrix multiplication (the order matters) | View × Forearm × Wrist × Joints | `Transform.*`, `HandRenderer.cpp` |
-| Inverse transformation | Affine inverse | Build mode: mouse → joint angle | `Transform.*`, `ViewerCore.cpp` |
-| Hierarchical modelling | Matrix stack (push / pop) | Forward kinematics of all 15 finger bones | `Hand.cpp` |
-| Reflection | Mirror in the y-axis | Left hand from the right hand (`L`) | `Hand.cpp` |
-| Window-to-viewport | As a matrix | Detail view, animation frame grids | `HandRenderer.cpp`, `cp2_animate.cpp` |
-| Transformed primitives | Rotated ellipses as transformed polygons | Palm pads and nails on a turned hand | `TransformedShapes.*` |
-| Keyframe animation | Keyframes, in-betweening, ease-in-out | 6 animated signs | `Animation.*` |
-| Motion paths | Catmull–Rom spline through keyframe positions | The wrist's path in each moving sign | `Animation.*` |
-| Time-based playback | Elapsed time × speed, looping | Viewer speed control | `Animation.*` |
-| Animation output | Animated GIF writer with LZW compression | `anim_*.gif` | `GifWriter.*` |
+| 3D homogeneous coordinates | 4×4 matrices: translation, rotation about x/y/z and any axis (Rodrigues), scaling, reflection; general inverse | Every vertex of the scene | `Math3D.*` |
+| Hierarchical modelling in 3D | 4×4 matrix stack | Forward kinematics of all 15 finger bones, in 3D | `Hand3D.cpp` |
+| Viewing | `lookAt` view matrix, perspective projection, projecting points to the window | Orbit camera, presets, picking | `Math3D.*`, `Camera.*` |
+| Meshes | Spheres, tapered tubes, profile tubes, an extruded outline with a rounded edge; smooth normals | Joints, bones, forearm, body, palm | `Mesh.*`, `HandMesh.*` |
+| Triangulation | Ear clipping of a concave polygon | Front and back of the palm | `Mesh.cpp` |
+| Normals under transformation | Inverse-transpose matrix; a mirror reverses the triangle winding | Scaled spheres, the left hand | `Mesh.cpp`, `GLRenderer.cpp` |
+| Hidden surfaces | Depth buffer, back-face culling | The whole scene (replaces the painter's algorithm) | `GLRenderer.cpp` |
+| Lighting | Phong reflection model (ambient + diffuse + specular), 3 lights, materials | Skin, nails, clothing | `GLRenderer.cpp` |
+| Shading | Smooth (Gouraud), flat, wireframe | Comparing shading methods (`S`) | `GLRenderer.cpp` |
+| Inverse kinematics (analytic) | Two-bone arm: law of cosines + a pole direction | Placing the elbow so the arm follows the hand | `HandMesh.cpp` |
+| Contact search | Coordinate descent on joint angles | Thumb touching a fingertip (O, F, D, 6–9, flat-O) | `Hand3D.cpp` |
+| Placing against the body | Solve for the wrist so a hand point lands on an anchor | "Fingertips on the chin", "palm on the chest" | `Hand3D.cpp`, `Body.*`, `Signs3D.cpp` |
+| Two-hand keyframe animation | Eased interpolation, Catmull–Rom wrist paths, holds, joined timelines | All signs and sentences | `Timeline.*` |
+| Picking in 3D | Project every joint with projection × view × model, take the nearest | Build mode | `StudioCore.cpp` |
+| 2D overlay | Orthographic projection, alpha blending, bitmap text | Subtitles, panels, help | `GLRenderer.cpp`, `studio_*.cpp` |
+| Reading back the picture | `glReadPixels` into our framebuffer; median-cut colour quantization for GIF | Screenshots and animations | `StudioCapture.cpp`, `GifWriter.cpp` |
 
-How each one works, with worked examples: **[docs/cp2-transformations-animation.md](docs/cp2-transformations-animation.md)**.
+How each one works, with worked examples: **[docs/final-3d-opengl.md](docs/final-3d-opengl.md)**.
 
-### Checkpoint 1 – the technical foundation
+### Earlier checkpoints
 
-| Topic | Algorithm(s) | Used in the hand for | File |
-|---|---|---|---|
-| Lines | DDA, Bresenham (all 8 octants) | Skeleton bones, outlines, curves | `RasterLines.cpp` |
-| Line operations | Dashed/dotted patterns, thick lines, polylines | Window marker, motion paths | `RasterLines.cpp` |
-| Circles | Midpoint circle (outline, filled, 8-way symmetry) | Knuckles, fingertips, joints | `RasterCircles.cpp` |
-| Ellipses | Midpoint ellipse (two regions) | Palm pads, fingernails | `RasterEllipses.cpp` |
-| Polygons | Scan-line fill with Edge Table + Active Edge Table | Forearm, palm, finger bones | `RasterPolygons.cpp` |
-| Polygon operations | Shoelace area, convexity, point-in-polygon, centroid | Palm analysis, tests | `Geometry.cpp` |
-| Line clipping | Cohen–Sutherland | Every line and outline | `Clipping.cpp` |
-| Polygon clipping | Sutherland–Hodgman | Every filled shape | `Clipping.cpp` |
-| Bézier curves | de Casteljau and Bernstein form | Palm crease lines | `Curves.cpp` |
-| Splines | Catmull–Rom, uniform cubic B-spline | Smooth palm outline, motion paths | `Curves.cpp` |
-
-How each one works: **[docs/algorithms.md](docs/algorithms.md)**.
+- **Checkpoint 2:** homogeneous 3×3 matrices, rotation about a pivot, composition, inverse, the matrix stack, reflection, window-to-viewport, keyframes with easing, motion paths, the GIF writer. See [docs/cp2-transformations-animation.md](docs/cp2-transformations-animation.md).
+- **Checkpoint 1:** DDA and Bresenham lines, midpoint circle and ellipse, scan-line polygon fill, Cohen–Sutherland and Sutherland–Hodgman clipping, Bézier curves and splines. See [docs/algorithms.md](docs/algorithms.md).
 
 ## How to compile and run
 
-### Option A – `build.bat` (Windows, recommended)
+### Windows – `build.bat` (recommended)
 
-1. Open **Developer Command Prompt for VS 2022** from the Start menu. (It provides the `cl` compiler. `g++` also works if it is installed.)
+1. Open **Developer Command Prompt for VS 2022** from the Start menu.
 2. Run:
 
 ```bat
 cd /d C:\path\to\sign-visualizer
 build.bat
 bin\render_test.exe
-bin\cp2_animate.exe
-bin\sign_viewer.exe
+bin\sign_studio.exe
 ```
 
 | Program | What it does |
 |---|---|
-| `render_test.exe` | 94 automated checks. It should end with `ALL CHECKS PASSED`. |
-| `cp2_animate.exe` | **Checkpoint 2 output:** 6 animated GIFs plus 15 images, written to `output_cp2`. |
-| `cp1_render.exe` | Checkpoint 1 output: 29 images (all 16 signs, views, algorithm pages), written to `output`. |
-| `sign_viewer.exe` | The **interactive window**. Click it, then use the keys below. |
+| `sign_studio.exe` | **The final application** (3D, OpenGL). Click the window and press `H` for help. |
+| `sign_studio.exe --capture` | Renders all the documentation images and GIFs into `output_final` |
+| `render_test.exe` | 146 automated checks (CP1, CP2 and the 3D version). It should end with `ALL CHECKS PASSED`. |
+| `cp1_render.exe`, `cp2_animate.exe`, `sign_viewer.exe` | The Checkpoint 1 and 2 programs, unchanged |
 
-### Option B – any system with g++
-
-```bash
-g++ -std=c++17 -O2 -Isrc src/*.cpp apps/cp2_animate.cpp -o cp2_animate
-g++ -std=c++17 -O2 -Isrc src/*.cpp tests/render_test.cpp -o render_test
-./render_test
-./cp2_animate
-```
-
-### Option C – CMake
+### Any system – CMake
 
 ```bash
 cmake -S . -B build
 cmake --build build --config Release
 ```
 
-This builds every program: the Windows viewer on Windows, and the OpenGL viewer wherever freeglut is installed.
+On Windows this builds `sign_studio`. With freeglut installed it also builds `sign_studio_glut`, the same application in a GLUT window.
 
-### Interactive viewer controls
+### Controls of `sign_studio`
 
-| Key | Action |
+| Key / mouse | Action |
 |---|---|
-| `1`–`9`, `,` / `.` | Choose a sign (16 in total). The hand moves smoothly to it. |
-| `P` | Play through all the signs |
-| `W` | **Watch mode:** play an animated sign. Press again for the next one. |
-| `[` / `]` | Playback speed: half / double (0.125× to 4×) |
-| `B` | **Build mode:** drag a joint with the mouse to bend it; drag empty space to turn the wrist. `↑`/`↓` curl the selected joint, `←`/`→` bend it sideways. |
-| `←` / `→`, `↑` / `↓` | Outside Build mode: turn the hand at the wrist / scale it |
-| `L` | Left hand (reflection) |
-| `R` | Reset the pose, wrist, scale and speed |
-| `G` | Show every joint's local coordinate frame (the matrix stack) |
-| `M` | Motion trails. While watching, this shows the wrist's motion path. |
-| `C` | Detail view (clipping + window-to-viewport) |
-| `T` | Pages: 5 algorithm pages, then 2 transformation pages |
-| `D` / `F` / `S` / `X` | DDA↔Bresenham / wireframe / skeleton view / palm details |
-| `+` / `-` | Bigger / smaller pixels (1× to 12×) |
+| `Enter` | Type a word or sentence; `Enter` again signs it (`Esc` cancels) |
+| `Tab` | Letters / Numbers / Words |
+| `←` `→` | Previous / next sign |
+| `Space` / `P` | Replay / pause |
+| `[` `]` or `↑` `↓` | Slower / faster (0.125× to 4×) |
+| `B` | **Build mode:** drag a joint (down curls it, sideways spreads it). Arrow keys bend the selected joint, or turn the hand if none is selected. The closest letter or number is shown. |
+| Mouse drag / wheel | Orbit the camera / zoom |
+| `C` | Camera: front, three-quarter, side, signer's view |
+| `Z` | Close-up that follows the hand |
+| `S` | Shading: smooth, flat, wireframe |
+| `L` | Lighting on / off |
+| `K` / `G` | Skeleton / each joint's axes |
+| `O` | Body reference on / off |
+| `M` | Left-handed signer (the whole scene mirrored) |
+| `R` / `H` / `Esc` | Reset / help / quit |
 
-## Output of `cp2_animate`
+## What `sign_studio --capture` produces
 
-All of it, with captions: **[docs/CP2-graphical-output.pdf](docs/CP2-graphical-output.pdf)**. The GIFs are also in [docs/animations](docs/animations).
+All of it, with captions: **[docs/FINAL-graphical-output.pdf](docs/FINAL-graphical-output.pdf)**.
 
 | File | Shows |
 |---|---|
-| `transform_1_basics.bmp` | Translation, rotation about the origin, rotation about the knuckle, scaling about a fixed point, reflection, shear |
-| `transform_2_composite.bmp` | T·R vs R·T; rotation about a pivot step by step; a three-bone finger built with the matrix stack |
-| `hand_frames.bmp` | Every joint's local frame (red = local x, green = local y) |
-| `hand_placements.bmp` | One sign: original, wrist turned 30°, scaled 0.7 and moved, mirrored |
-| `hand_left_right.bmp` | A right hand and its reflection, a left hand |
-| `anim_1_hello.gif` … `anim_6_b-a-b-y.gif` | HELLO, GOODBYE, YES, NO, THANK YOU, and B-A-B-Y fingerspelled (20 frames per second) |
-| `anim_*_frames.bmp` | Six moments of each animation |
-| `anim_*_path.bmp` | Start (dim), end, and the wrist's motion path through the keyframes |
+| `final_01_studio` | The application in Learn mode |
+| `final_02_alphabet`, `final_03_numbers` | Charts of all 26 letters and the numbers 0–10 |
+| `final_04_words` | Chart of the 32 conversation signs |
+| `final_05_shading`, `final_06_lighting` | Smooth / flat / wireframe; lighting off / on, skeleton, joint axes |
+| `final_07_cameras` | The four camera presets |
+| `final_08_two_hands`, `final_09_left_handed` | A two-handed sign, and the same sign by a left-handed signer |
+| `final_10`–`final_12_sentence` | "hello my name abdalla", with subtitles |
+| `final_13_build` | Build mode with a selected joint |
+| `final_anim_*.gif` | HELLO, THANK YOU, NAME, "nice to meet you", and A-B-D-A-L-L-A fingerspelled |
 
 ## Project structure
 
 ```
-src/                     All graphics code - pure C++, no libraries
-  Framebuffer.*            Pixel memory, point clipping, BMP writer
-  Geometry.*               Points, rectangles, polygon operations
-  Raster.h, Raster*.cpp    Lines, circles, ellipses, polygon fill
-  Clipping.*, Canvas.*     Cohen-Sutherland, Sutherland-Hodgman, clip-then-draw
-  Curves.*                 Bezier, Catmull-Rom, B-spline
-  Transform.*              CP2: 3x3 matrices, basic transformations, inverse, matrix stack
-  TransformedShapes.*      CP2: ellipses through any matrix, frame axes, arrows
-  Hand.*                   Joint hierarchy (matrix stack), placement (move/rotate/scale/mirror)
-  Poses.*                  The 16 signs (each = joint angles)
-  HandRenderer.*           Draws the hand through View x Forearm x Wrist x Joints
-  Animation.*              CP2: keyframes, easing, motion paths, the 6 animated signs, playback
-  GifWriter.*              CP2: animated GIF writer with LZW compression
-  TestScene.*              The 5 CP1 algorithm pages
-  TransformScene.*         CP2: the 2 transformation pages
+src/
+  (Checkpoints 1 and 2: pure C++ 2D graphics - see docs/algorithms.md and docs/cp2-...)
+  Math3D.*       4x4 matrices, camera matrices, 3D matrix stack
+  Hand3D.*       the rig in 3D, placement in body space, contact search
+  Mesh.*         triangle meshes, ear clipping, smooth normals
+  HandMesh.*     the hand's meshes, two-bone arm IK
+  Body.*         head and torso reference, named anchors
+  Camera.*       orbit camera and presets
+  GLRenderer.*   OpenGL: lights, materials, shading modes, overlay
+  Handshapes.*   A-Z, 0-10 and the extra handshapes
+  Signs3D.*      letters, numbers and the 32 word signs as keyframes
+  Timeline.*     two-hand keyframe animation and playback
+  Speller.*      type a word or sentence -> one timeline
 apps/
-  cp2_animate.cpp          CHECKPOINT 2 PROGRAM: GIFs + images (pure C++)
-  cp1_render.cpp           Checkpoint 1 program: images (pure C++)
-  ViewerCore.*             Everything the viewers do: modes, keys, Build-mode picking
-  viewer_win32.cpp         Interactive window (Windows' own window functions only)
-  viewer_glut.cpp          Alternative interactive window (OpenGL + freeglut)
+  StudioCore.*        the 3D application: modes, keys, picking, interface
+  studio_win32.cpp    Windows window + OpenGL (nothing to install)
+  studio_glut.cpp     the same with freeglut
+  StudioCapture.*     renders the documentation images and GIFs
+  cp1_render.cpp, cp2_animate.cpp, ViewerCore.*, viewer_*.cpp   (Checkpoints 1 and 2)
 tests/
-  render_test.cpp          94 automated checks
-docs/
-  cp2-transformations-animation.md   CP2 techniques with worked examples
-  algorithms.md                      CP1 algorithms with worked examples
-  CP2-graphical-output.pdf, CP1-graphical-output.pdf   Screenshots with captions
-  animations/, images/               GIFs and screenshots
-build.bat                Builds everything on Windows
-CMakeLists.txt           Optional CMake build
+  render_test.cpp, final_tests.cpp    146 automated checks
+docs/            write-ups, screenshot PDFs, images, animations, roadmap
 ```
-
-## Current progress
-
-**Checkpoint 2 – done:**
-
-- 3×3 homogeneous matrices for translation, rotation, scaling, reflection and shear, including rotation about a pivot, scaling about a fixed point, composition and the inverse.
-- The CP1 hand rebuilt on a **matrix stack**: forearm → wrist → palm → knuckle → middle joint → end joint → fingertip. It gives exactly the same result as the CP1 trigonometry (checked by tests). The whole hand can now be moved, turned at the wrist, scaled and mirrored.
-- Rotated ellipses, so the palm details stay correct on a turned hand.
-- **Keyframe animation:** 6 animated signs with eased in-betweening, Catmull–Rom motion paths, holds, time-based playback and speed control.
-- **Watch mode** and **Build mode** in the viewer. Build mode uses inverse matrices to turn the mouse into joint angles.
-- The sign library grew from 8 to 16 handshapes.
-- An animated GIF writer, written from scratch.
-- 94 automated checks, all passing.
-
-**Checkpoint 1 – done:** all the drawing algorithms, each used for a real part of the hand (see the table above).
-
-**Next:**
-
-- **Checkpoint 3:** move the components into OpenGL (its own matrix stack and real 3D) and build the prototype.
-- **Final:** refine Watch and Build modes, add more signs and words, testing.
 
 ## Known limitations
 
-- The hand is drawn in 2D from the front. Curling towards the viewer is shown by foreshortening, and coming closer by scaling. Real depth comes with 3D in Checkpoint 3.
-- Rotated ellipses are drawn as transformed polygons, not with the midpoint algorithm, which only draws axis-aligned ellipses.
-- Joint angles are interpolated linearly, so fingers can briefly pass through each other between very different handshapes (there is no collision detection).
-- Build mode's joint limits are simple ranges, not real anatomy.
-- Some signs (for example R, E and S) are front-view approximations of their handshapes.
-- Edges are jagged (no anti-aliasing).
-
-More detail: [CP2 write-up](docs/cp2-transformations-animation.md#known-limitations) and [CP1 write-up](docs/algorithms.md#11-known-limitations).
+- **Hands only, no face.** ASL also uses facial expressions as grammar (for example raised eyebrows for a yes/no question); these are not shown. The head is a reference for location, not an avatar.
+- **English word order.** Sentence mode signs words in the order typed and leaves out words ASL does not sign (a, the, is, to, …). It is not ASL grammar.
+- **One citation form per sign.** Many signs have regional or personal variants. The signs follow common beginner references and should be checked by fluent signers before the tool is used as a reference.
+- **No collisions.** Joint angles are interpolated, so fingers can briefly pass through each other between very different handshapes, and hands can touch the body slightly too deeply.
+- **Stylised hand.** Bones are tubes and joints are spheres; there is no skin deformation or texture (textures were replaced by skin colour and shading).
+- **Simple arm.** The elbow is placed by a two-bone solver, not by full body motion; the shoulders do not move.
+- **Gouraud shading.** OpenGL 1.1 evaluates the Phong model per vertex and interpolates colours, so highlights are slightly softer than true per-pixel Phong shading.
+- GIFs are limited to 256 colours per frame (median cut), so smooth gradients show slight banding.
